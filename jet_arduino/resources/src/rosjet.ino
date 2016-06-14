@@ -14,6 +14,7 @@
 //Motor Constants
 #define MAX_SPEED 400
 #define BRAKE_POWER 400
+#define MOTOR_TIMEOUT_MS 1000
 
 //Sonar Constants
 #define SONAR_NUM 3
@@ -65,6 +66,7 @@ void motor_right_speed_cb(const std_msgs::Int16 &cmd_msg);
 void motor_left_speed_cb(const std_msgs::Int16 &cmd_msg);
 ros::Subscriber<std_msgs::Int16> motor_right_speed_sub("arduino/motor_right_speed", motor_right_speed_cb);
 ros::Subscriber<std_msgs::Int16> motor_left_speed_sub("arduino/motor_left_speed", motor_left_speed_cb);
+unsigned long motorTimer;
 
 //Ros NodeHandler
 ros::NodeHandle  nh;
@@ -87,12 +89,14 @@ ros::Publisher gyro_pub("arduino/gyro", &gyro);
  * CALLBACKS
  */
 void motor_right_speed_cb(const std_msgs::Int16 &cmd_msg) {
+    motorTimer = millis();
     md.setM2Speed(cmd_msg.data);
     if (cmd_msg.data == 0)
       md.setM2Brake(BRAKE_POWER);
 }
 
 void motor_left_speed_cb(const std_msgs::Int16 &cmd_msg) {
+    motorTimer = millis();
     md.setM1Speed(cmd_msg.data);
     if (cmd_msg.data == 0)
       md.setM1Brake(BRAKE_POWER);
@@ -129,6 +133,8 @@ void setup() {
   for(uint8_t i = 0; i < SONAR_NUM; i++) {
     nh.advertise(sonar_pub[i]);
   }
+
+  motorTimer = millis();
 
   currentTimer = millis() + 500;
 
@@ -176,6 +182,11 @@ void loop() {
     encoderTimer += ENCODER_INTERVAL;
   }
 
+  if (millis() > motorTimer + MOTOR_TIMEOUT_MS) {
+    md.setM1Brake(BRAKE_POWER);
+    md.setM2Brake(BRAKE_POWER);
+  }
+  
   delay(10);
   nh.spinOnce();
 }
